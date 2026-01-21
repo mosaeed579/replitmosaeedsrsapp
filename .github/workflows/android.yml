@@ -17,7 +17,6 @@ jobs:
 
       - name: Install Dependencies (Fixed)
         run: |
-          # حل مشكلة التعارض باستخدام legacy-peer-deps
           npm install --legacy-peer-deps --force
           npm install @capacitor/cli @capacitor/core @capacitor/android @capacitor/assets @capacitor/filesystem @capacitor/preferences @capacitor-community/file-opener capacitor-voice-recorder --legacy-peer-deps --force
 
@@ -40,20 +39,57 @@ jobs:
           npx cap copy android
           npx cap sync
 
-      - name: Set App Version to 3.1.0
+      - name: Set App Version to 3.2.0
         run: |
           FILE="android/app/build.gradle"
-          # تحديث الإصدار للمستخدم ولنظام أندرويد
-          sed -i 's/versionName "1.0"/versionName "3.1.0"/' $FILE
-          sed -i 's/versionCode 1/versionCode 4/' $FILE
+          sed -i 's/versionName "1.0"/versionName "3.2.0"/' $FILE
+          sed -i 's/versionCode 1/versionCode 5/' $FILE
 
       - name: Generate App Icons
         run: npx @capacitor/assets generate --android || echo "Icon generation failed"
 
+      - name: Copy Widget Resources
+        run: |
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/xml
+          mkdir -p android/app/src/main/res/drawable
+          mkdir -p android/app/src/main/res/values
+          mkdir -p android/app/src/main/java/com/medstudy/app
+          
+          cp android-resources/layout/*.xml android/app/src/main/res/layout/
+          cp android-resources/xml/*.xml android/app/src/main/res/xml/
+          cp android-resources/drawable/*.xml android/app/src/main/res/drawable/
+          cp android-resources/values/*.xml android/app/src/main/res/values/
+          cp android-resources/kotlin/*.kt android/app/src/main/java/com/medstudy/app/
+
+      - name: Inject Widget Receivers into AndroidManifest
+        run: |
+          FILE="android/app/src/main/AndroidManifest.xml"
+          
+          WIDGET_RECEIVERS='
+              <receiver android:name="com.medstudy.app.DueLessonsWidget" android:exported="true">
+                  <intent-filter>
+                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                  </intent-filter>
+                  <meta-data
+                      android:name="android.appwidget.provider"
+                      android:resource="@xml/due_lessons_widget_info" />
+              </receiver>
+              <receiver android:name="com.medstudy.app.StudyStatsWidget" android:exported="true">
+                  <intent-filter>
+                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                  </intent-filter>
+                  <meta-data
+                      android:name="android.appwidget.provider"
+                      android:resource="@xml/study_stats_widget_info" />
+              </receiver>
+          '
+          
+          sed -i "s|</application>|${WIDGET_RECEIVERS}\n    </application>|" $FILE
+
       - name: Force Inject Permissions
         run: |
           FILE="android/app/src/main/AndroidManifest.xml"
-          # حقن الأذونات الضرورية فقط وحذف الإشعارات
           sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />' $FILE
           sed -i '/<application/i \    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />' $FILE
           sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $FILE
@@ -73,5 +109,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MedStudy-v3.1.0-Fixed
+          name: MedStudy-v3.2.0-Widgets
           path: android/app/build/outputs/apk/debug/app-debug.apk

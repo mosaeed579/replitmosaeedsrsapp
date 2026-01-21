@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_due_lessons_description">Shows the number of lessons due for review</string>
+    <string name="widget_study_stats_description">Shows your study progress and streak</string>
+</resources>

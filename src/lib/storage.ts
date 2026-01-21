@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { AppData, DEFAULT_SETTINGS, Lesson, LessonAttachment } from '@/types/lesson';
+import { syncWidgetData } from './widgetSync';
 
 const STORAGE_KEY = 'spaced-repetition-data';
 
@@ -109,6 +110,9 @@ export const saveData = async (data: AppData): Promise<void> => {
         key: STORAGE_KEY,
         value: jsonData,
       });
+      
+      // Sync widget data for home screen widgets
+      await syncWidgetData(data);
     } else {
       // Use localStorage for web
       localStorage.setItem(STORAGE_KEY, jsonData);
