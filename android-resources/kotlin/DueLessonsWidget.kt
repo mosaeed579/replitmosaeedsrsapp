@@ -1,4 +1,4 @@
-package com.medstudy.app
+package com.medstudy.srs
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider

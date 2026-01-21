@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Dependencies (Fixed)
+      - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps --force
           npm install @capacitor/cli @capacitor/core @capacitor/android @capacitor/assets @capacitor/filesystem @capacitor/preferences @capacitor-community/file-opener capacitor-voice-recorder --legacy-peer-deps --force
@@ -46,46 +46,46 @@ jobs:
           sed -i 's/versionCode 1/versionCode 5/' $FILE
 
       - name: Generate App Icons
-        run: npx @capacitor/assets generate --android || echo "Icon generation failed"
+        run: npx @capacitor/assets generate --android || echo "Icon generation skipped"
 
       - name: Copy Widget Resources
         run: |
+          # Create resource directories
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/xml
           mkdir -p android/app/src/main/res/drawable
           mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/java/com/medstudy/app
           
+          # Create Kotlin source directory for widgets (matching package com.medstudy.srs)
+          mkdir -p android/app/src/main/java/com/medstudy/srs
+          
+          # Copy widget resources
           cp android-resources/layout/*.xml android/app/src/main/res/layout/
           cp android-resources/xml/*.xml android/app/src/main/res/xml/
           cp android-resources/drawable/*.xml android/app/src/main/res/drawable/
-          cp android-resources/values/*.xml android/app/src/main/res/values/
-          cp android-resources/kotlin/*.kt android/app/src/main/java/com/medstudy/app/
+          
+          # Merge widget strings with existing strings.xml or create new one
+          if [ -f android/app/src/main/res/values/strings.xml ]; then
+            # Insert widget strings before closing </resources> tag
+            sed -i '/<\/resources>/d' android/app/src/main/res/values/strings.xml
+            cat >> android/app/src/main/res/values/strings.xml << 'EOF'
+    <string name="widget_due_lessons_description">Shows the number of lessons due for review</string>
+    <string name="widget_study_stats_description">Shows your study progress and streak</string>
+</resources>
+EOF
+          else
+            cp android-resources/values/*.xml android/app/src/main/res/values/
+          fi
+          
+          # Copy Kotlin widget providers
+          cp android-resources/kotlin/*.kt android/app/src/main/java/com/medstudy/srs/
 
       - name: Inject Widget Receivers into AndroidManifest
         run: |
           FILE="android/app/src/main/AndroidManifest.xml"
           
-          WIDGET_RECEIVERS='
-              <receiver android:name="com.medstudy.app.DueLessonsWidget" android:exported="true">
-                  <intent-filter>
-                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                  </intent-filter>
-                  <meta-data
-                      android:name="android.appwidget.provider"
-                      android:resource="@xml/due_lessons_widget_info" />
-              </receiver>
-              <receiver android:name="com.medstudy.app.StudyStatsWidget" android:exported="true">
-                  <intent-filter>
-                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                  </intent-filter>
-                  <meta-data
-                      android:name="android.appwidget.provider"
-                      android:resource="@xml/study_stats_widget_info" />
-              </receiver>
-          '
-          
-          sed -i "s|</application>|${WIDGET_RECEIVERS}\n    </application>|" $FILE
+          # Add widget receivers before </application> tag
+          sed -i 's|</application>|        <receiver android:name="com.medstudy.srs.DueLessonsWidget" android:exported="true">\n            <intent-filter>\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n            </intent-filter>\n            <meta-data\n                android:name="android.appwidget.provider"\n                android:resource="@xml/due_lessons_widget_info" />\n        </receiver>\n        <receiver android:name="com.medstudy.srs.StudyStatsWidget" android:exported="true">\n            <intent-filter>\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n            </intent-filter>\n            <meta-data\n                android:name="android.appwidget.provider"\n                android:resource="@xml/study_stats_widget_info" />\n        </receiver>\n    </application>|' $FILE
 
       - name: Force Inject Permissions
         run: |
@@ -100,7 +100,7 @@ jobs:
         run: |
           sed -i 's/dependencies {/dependencies {\n    constraints {\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0")\n        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0")\n    }/' android/app/build.gradle
 
-      - name: Build APK
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
